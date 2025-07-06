@@ -8,6 +8,7 @@ Laravel 10 + Alpine.js + Tailwind CSS で構築された並行ファイルアッ
 - **1ファイル最大1MB**
 - **並行アップロード処理**（最大3ファイル同時）
 - **失敗時の自動リトライ**（最大3回）
+- **失敗ファイル表示**（セッション内で確認可能、手動クリア対応）
 - **日本語UI**（レスポンシブデザイン対応）
 
 ## アップロード処理の詳細フロー
@@ -150,13 +151,46 @@ Laravel 10 + Alpine.js + Tailwind CSS で構築された並行ファイルアッ
    this.processNextUpload();
    ```
 
-### 5. 全ファイル完了後の処理
+### 5. 失敗ファイルの管理
+
+```javascript
+// fileUpload.js - fileStatusUpdated イベント
+```
+
+#### 5-1. 失敗ファイルの検知と保存
+1. **失敗ステータスの検知**
+   ```javascript
+   if (status.status === 'failed') {
+       const failedFile = { ...this.files[fileIndex] };
+       if (!this.failedFiles.find(f => f.id === fileId)) {
+           this.failedFiles.push(failedFile);
+       }
+   }
+   ```
+
+2. **失敗ファイル表示**
+   - ドラッグ&ドロップエリアとファイル一覧の間に表示
+   - セッション内で永続化（ページリロードまで）
+   - エラーメッセージと詳細情報を表示
+
+#### 5-2. 失敗ファイルのクリア
+1. **手動クリア**
+   ```javascript
+   @click="failedFiles = []"  // クリアボタン
+   ```
+
+2. **自動クリア**
+   ```javascript
+   this.failedFiles = [];     // 新しいファイル選択時
+   ```
+
+### 6. 全ファイル完了後の処理
 
 ```javascript
 // fileUpload.js - startUpload() 完了部分
 ```
 
-#### 5-1. アップロード済みファイル一覧更新
+#### 6-1. アップロード済みファイル一覧更新
 1. **最新ファイル一覧取得**
    ```javascript
    await this.loadUploadedFiles();
@@ -176,16 +210,17 @@ Laravel 10 + Alpine.js + Tailwind CSS で構築された並行ファイルアッ
    });
    ```
 
-#### 5-2. UI クリーンアップ
+#### 6-2. UI クリーンアップ
 ```javascript
 this.files = [];           // 現在のアップロード表示をクリア
 this.selectedFiles = null; // 選択ファイルをクリア
 this.uploading = false;    // アップロード中フラグをオフ
+// 注意: failedFiles は保持される（手動クリアまで）
 ```
 
-### 6. レスポンシブレイアウト表示
+### 7. レスポンシブレイアウト表示
 
-#### 6-1. デスクトップ（Z字パターン）
+#### 7-1. デスクトップ（Z字パターン）
 ```javascript
 get leftFiles() {
     // 1,3,5,7,9番目のファイル（奇数番目）
@@ -198,7 +233,7 @@ get rightFiles() {
 }
 ```
 
-#### 6-2. モバイル（順次表示）
+#### 7-2. モバイル（順次表示）
 ```html
 <!-- 1から10まで順番表示 -->
 <div class="lg:hidden space-y-3">
@@ -213,9 +248,9 @@ get rightFiles() {
 - **Migration**: file_uploads テーブル
 
 ### フロントエンド
-- **ParallelFileUploader Class**: 並行アップロード制御
-- **Alpine.js Component**: UI状態管理・イベント処理
-- **upload.blade.php**: メインUI
+- **ParallelFileUploader Class**: 並行アップロード制御・自動リトライ処理
+- **Alpine.js Component**: UI状態管理・イベント処理・失敗ファイル管理
+- **upload.blade.php**: メインUI・レスポンシブレイアウト・失敗ファイル表示
 
 ## API エンドポイント
 
@@ -227,6 +262,31 @@ get rightFiles() {
 | GET | `/api/files` | アップロード済みファイル一覧 |
 | GET | `/api/files/{id}/download` | ファイルダウンロード |
 | DELETE | `/api/files/{id}` | ファイル削除 |
+
+## UI セクション構成
+
+### 1. アップロード済みファイル
+- **表示条件**: 常時表示
+- **レイアウト**: デスクトップ（Z字パターン）、モバイル（順次）
+- **機能**: ダウンロード、削除
+
+### 2. アップロード失敗したファイル
+- **表示条件**: 失敗ファイルがある場合のみ
+- **位置**: ドラッグ&ドロップエリアとファイル一覧の間
+- **機能**: エラー内容表示、手動クリア
+- **永続性**: セッション内（ページリロードまで）
+
+### 3. ドラッグ&ドロップエリア
+- **機能**: ファイル選択、ドラッグ&ドロップ対応
+- **制限表示**: 10ファイル上限時は無効化
+
+### 4. ファイル一覧
+- **表示条件**: 常時表示
+- **機能**: 選択ファイルの確認、進捗表示
+
+### 5. ステータス統計
+- **表示条件**: 常時表示
+- **機能**: 選択済み、待機中、アップロード中、完了、失敗の数値表示
 
 ## 開発コマンド
 
