@@ -29,7 +29,7 @@ class FileUploadController extends Controller
         }
 
         $uploadedFiles = [];
-        
+
         foreach ($request->file('files') as $file) {
             $originalName = $file->getClientOriginalName();
             $storedName = Str::uuid() . '.' . $file->getClientOriginalExtension();
@@ -64,7 +64,7 @@ class FileUploadController extends Controller
 
         try {
             $file = $request->file('file');
-            
+
             if (!$file) {
                 $fileUpload->markAsFailed('No file provided');
                 return response()->json(['error' => 'No file provided'], 400);
@@ -73,7 +73,7 @@ class FileUploadController extends Controller
             $fileUpload->markAsUploading();
 
             $path = $file->storeAs('uploads', $fileUpload->stored_name, 'public');
-            
+
             $fileUpload->markAsCompleted();
 
             return response()->json([
@@ -83,7 +83,7 @@ class FileUploadController extends Controller
 
         } catch (\Exception $e) {
             $fileUpload->markAsFailed($e->getMessage());
-            
+
             return response()->json([
                 'error' => 'Upload failed',
                 'message' => $e->getMessage(),
@@ -93,21 +93,47 @@ class FileUploadController extends Controller
 
     public function retry(FileUpload $fileUpload): JsonResponse
     {
+        \Log::info('Retry attempt', [
+            'file_id' => $fileUpload->id,
+            'current_status' => $fileUpload->upload_status,
+            'retry_count' => $fileUpload->retry_count,
+            'can_retry' => $fileUpload->canRetry()
+        ]);
+
         if (!$fileUpload->canRetry()) {
             return response()->json([
                 'error' => 'File cannot be retried',
+                'details' => [
+                    'status' => $fileUpload->upload_status,
+                    'retry_count' => $fileUpload->retry_count,
+                    'max_retries' => 3
+                ]
             ], 400);
         }
 
-        $fileUpload->update([
-            'upload_status' => 'pending',
-            'error_message' => null,
-        ]);
+        try {
+            $fileUpload->update([
+                'upload_status' => 'pending',
+                'error_message' => null,
+            ]);
 
-        return response()->json([
-            'message' => 'File ready for retry',
-            'file' => $fileUpload->fresh(),
-        ]);
+            \Log::info('File reset for retry', ['file_id' => $fileUpload->id]);
+
+            return response()->json([
+                'message' => 'File ready for retry',
+                'file' => $fileUpload->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Retry update failed', [
+                'file_id' => $fileUpload->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to update file status',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function status(FileUpload $fileUpload): JsonResponse
@@ -120,7 +146,7 @@ class FileUploadController extends Controller
     public function index(): JsonResponse
     {
         $files = FileUpload::orderBy('created_at', 'desc')->get();
-        
+
         return response()->json([
             'files' => $files,
         ]);
@@ -133,7 +159,7 @@ class FileUploadController extends Controller
         }
 
         $filePath = storage_path('app/public/uploads/' . $fileUpload->stored_name);
-        
+
         if (!file_exists($filePath)) {
             abort(404, 'File not found');
         }

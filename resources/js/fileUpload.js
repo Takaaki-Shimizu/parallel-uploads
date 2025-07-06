@@ -242,6 +242,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('fileUpload', () => ({
         files: [],
         uploadedFiles: [],
+        failedFiles: [],
         selectedFiles: null,
         uploading: false,
         dragOver: false,
@@ -252,6 +253,16 @@ document.addEventListener('alpine:init', () => {
                 const fileIndex = this.files.findIndex(f => f.id === fileId);
                 if (fileIndex !== -1) {
                     this.files[fileIndex] = { ...this.files[fileIndex], ...status };
+                    
+                    // 失敗したファイルを専用配列に追加
+                    if (status.status === 'failed') {
+                        const failedFile = { ...this.files[fileIndex] };
+                        // 既に存在していない場合のみ追加
+                        if (!this.failedFiles.find(f => f.id === fileId)) {
+                            this.failedFiles.push(failedFile);
+                        }
+                    }
+                    
                     // Alpine.jsの反応性を確保するために配列を再作成
                     this.files = [...this.files];
                 }
@@ -296,6 +307,11 @@ document.addEventListener('alpine:init', () => {
 
         async handleFiles(files) {
             if (this.uploading) return;
+
+            // 新しいファイル選択時にアップロード進捗表示と失敗ファイル表示をクリア
+            this.files = [];
+            this.selectedFiles = null;
+            this.failedFiles = [];
 
             // アップロード済みファイル数を考慮したバリデーション
             const existingFileCount = this.uploadedFiles.length;

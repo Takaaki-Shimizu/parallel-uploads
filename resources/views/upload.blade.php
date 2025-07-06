@@ -11,13 +11,19 @@
                 <div class="p-6 text-gray-900">
                     <div x-data="fileUpload">
                         <!-- アップロード済みファイル一覧 -->
-                        <div x-show="uploadedFiles.length > 0" class="mb-8">
+                        <div class="mb-8">
                             <div class="mb-4">
                                 <h3 class="text-lg font-medium text-gray-900">アップロード済みファイル</h3>
                             </div>
                             <div class="bg-gray-50 rounded-lg p-4">
+                                <!-- ファイルがない場合の表示 -->
+                                <div x-show="uploadedFiles.length === 0" class="text-center py-8 text-gray-500">
+                                    <div class="text-4xl mb-4">📄</div>
+                                    <p>まだファイルがアップロードされていません</p>
+                                </div>
+                                
                                 <!-- デスクトップ: Z字パターンの2列表示 -->
-                                <div class="hidden lg:grid lg:grid-cols-2 gap-6">
+                                <div x-show="uploadedFiles.length > 0" class="hidden lg:grid lg:grid-cols-2 gap-6">
                                     <!-- 左列: Z字パターンの奇数番目 -->
                                     <div class="space-y-3">
                                         <template x-for="(file, index) in leftFiles" :key="file.id">
@@ -136,7 +142,7 @@
                                 </div>
 
                                 <!-- モバイル: 1列表示（1から10まで順番） -->
-                                <div class="lg:hidden space-y-3">
+                                <div x-show="uploadedFiles.length > 0" class="lg:hidden space-y-3">
                                     <template x-for="(file, index) in uploadedFiles" :key="file.id">
                                         <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow relative group">
                                             <div class="flex items-start space-x-3">
@@ -270,11 +276,65 @@
                             </div>
                         </div>
 
+                        <!-- 失敗したファイル一覧（セッション内のみ） -->
+                        <div x-show="failedFiles.length > 0" class="mb-6">
+                            <div class="mb-4 flex items-center justify-between">
+                                <h3 class="text-lg font-medium text-red-600">アップロード失敗したファイル</h3>
+                                <button 
+                                    @click="failedFiles = []"
+                                    class="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs rounded-md transition-colors"
+                                >
+                                    クリア
+                                </button>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-4">
+                                <div class="space-y-3">
+                                    <template x-for="(file, index) in failedFiles" :key="file.id">
+                                        <div class="bg-white rounded-lg p-4 shadow-sm border border-red-200">
+                                            <div class="flex items-start space-x-3">
+                                                <div class="flex-shrink-0">
+                                                    <!-- ファイルアイコン -->
+                                                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                                                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="space-y-2">
+                                                        <div>
+                                                            <p class="text-sm font-medium text-gray-900 truncate" x-text="file.original_name"></p>
+                                                            <p class="text-xs text-gray-500 mt-1">
+                                                                <span x-text="(file.file_size / 1024).toFixed(1)"></span>KB
+                                                            </p>
+                                                        </div>
+                                                        <div class="text-xs text-red-600">
+                                                            <span class="font-medium">アップロード失敗</span><br>
+                                                            <span x-text="file.error || 'エラーメッセージなし'"></span>
+                                                        </div>
+                                                        <div class="text-xs text-gray-500">
+                                                            新しいファイルを選択するか、「クリア」ボタンで表示を消去できます
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- アップロード進捗 -->
-                        <div x-show="files.length > 0" class="space-y-4">
+                        <div class="space-y-4">
                             <h3 class="text-lg font-medium text-gray-900">ファイル一覧</h3>
                             
                             <div class="bg-gray-50 rounded-lg p-4">
+                                <!-- ファイルが選択されていない場合の表示 -->
+                                <div x-show="files.length === 0" class="text-center py-8 text-gray-500">
+                                    <div class="text-4xl mb-4">📋</div>
+                                    <p>ファイルが選択されていません</p>
+                                </div>
+                                
                                 <template x-for="file in files" :key="file.id">
                                     <div class="flex items-center justify-between py-3 border-b border-gray-200 last:border-b-0">
                                         <div class="flex-1 min-w-0">
@@ -342,7 +402,7 @@
                             </div>
                             
                             <!-- 全体の進捗 -->
-                            <div x-show="uploading || files.some(f => f.status !== 'selected')" class="bg-white border rounded-lg p-4">
+                            <div x-show="files.length > 0 && (uploading || files.some(f => f.status !== 'selected'))" class="bg-white border rounded-lg p-4">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-sm font-medium text-gray-700">全体の進捗</span>
                                     <span class="text-sm text-gray-500">
@@ -360,7 +420,17 @@
                         </div>
 
                         <!-- 統計情報 -->
-                        <div x-show="files.length > 0" class="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="mt-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">ステータス</h3>
+                            
+                            <!-- ファイルが選択されていない場合の表示 -->
+                            <div x-show="files.length === 0" class="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
+                                <div class="text-4xl mb-4">📊</div>
+                                <p>ファイルを選択するとステータスが表示されます</p>
+                            </div>
+                            
+                            <!-- ステータス統計 -->
+                            <div x-show="files.length > 0" class="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div class="bg-purple-50 rounded-lg p-4">
                                 <div class="text-2xl font-bold text-purple-600" x-text="files.filter(f => f.status === 'selected').length"></div>
                                 <div class="text-sm text-purple-600">選択済み</div>
@@ -380,6 +450,7 @@
                             <div class="bg-red-50 rounded-lg p-4">
                                 <div class="text-2xl font-bold text-red-600" x-text="files.filter(f => f.status === 'failed').length"></div>
                                 <div class="text-sm text-red-600">失敗</div>
+                            </div>
                             </div>
                         </div>
                     </div>
